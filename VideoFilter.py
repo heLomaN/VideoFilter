@@ -66,8 +66,9 @@ def generate_thumbnail(in_filename_list, delete_folder):
             cv2.putText(img1, text_label, org=(10,30), fontFace= cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.7, color=(255,128,128), thickness=1, lineType=cv2.LINE_AA)
 
             window_name = os.path.basename(in_filename)
+            window_name = window_name.encode("gbk").decode('UTF-8', errors='ignore')
             # cv2.namedWindow(window_name)
-            cv2.namedWindow(window_name.encode("gbk"), cv2.WND_PROP_FULLSCREEN)
+            cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN)
             cv2.moveWindow(window_name, 200, 200)
             cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
@@ -89,6 +90,7 @@ def generate_thumbnail(in_filename_list, delete_folder):
             cv2.destroyAllWindows()
             if chr(pressed & 255) in 'rR':
                 offset += 90
+                generate_thubnail_idx((in_filename, offset))
             else:
                 if chr(pressed & 255) in 'dD':
                     os.rename(in_filename, os.path.join(delete_folder, os.path.basename(in_filename)))
