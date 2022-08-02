@@ -58,7 +58,11 @@ def generate_thumbnail(in_filename_list, delete_folder):
         offset = 0
         while True:
             image_file_path_list = [os.path.join(cache_path, "{}_{}.jpg".format(os.path.basename(in_filename), idx)) for idx in [1, 2, 3, 4]]
-            img_list = [cv2.imdecode(np.fromfile(fp,dtype=np.uint8),-1) for fp in image_file_path_list]
+            try:
+                img_list = [cv2.imdecode(np.fromfile(fp,dtype=np.uint8),-1) for fp in image_file_path_list]
+            except Exception as e:
+                print(str(e))
+                break
 
             img_list_2d = [[img_list[0],img_list[1]],
                            [img_list[2],img_list[3]]]
@@ -114,7 +118,7 @@ def glob_folders(top_path):
             if os.path.splitext(os.path.basename(entry.path))[1] == ".mp4":
                 files_to_check.append(entry.path)
 
-    # prepare_thumbnail(files_to_check)
+    prepare_thumbnail(files_to_check)
     generate_thumbnail(files_to_check, delete_folder)
 
 def filt_video(top_path):
