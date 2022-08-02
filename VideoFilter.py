@@ -1,6 +1,6 @@
 import os, sys
 import ffmpeg
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 import cv2
 import numpy as np
 
@@ -20,28 +20,35 @@ def concat_vh(list_2d):
 cache_path = "_video_filter"
 
 def generate_thubnail_idx(input_data):
-    (in_filename, idx, time_offset) = input_data
+    (in_filename, time_offset) = input_data
     probe = ffmpeg.probe(in_filename)
     time = float(probe['streams'][0]['duration']) // 5
     width = probe['streams'][0]['width']
 
-    img_path = os.path.join(cache_path, "{}.jpg".format(idx))
-    if os.path.exists(img_path):
-        os.remove(img_path)
-    try:
-        (
-            ffmpeg
-            .input(in_filename, ss=time*idx + time_offset)
-            .filter('scale', width, -1)
-            .output(img_path, vframes=1)
-            .overwrite_output()
-            .run(capture_stdout=True, capture_stderr=True)
-        )
-    except ffmpeg.Error as e:
-        print(e.stderr.decode(), file=sys.stderr)
-        sys.exit(1)
+    for idx in [1, 2, 3, 4]:
+        img_path = os.path.join(cache_path, "{}_{}.jpg".format(os.path.basename(in_filename), idx))
+        if os.path.exists(img_path):
+            os.remove(img_path)
+        try:
+            (
+                ffmpeg
+                .input(in_filename, ss=time*idx + time_offset)
+                .filter('scale', width, -1)
+                .output(img_path, vframes=1)
+                .overwrite_output()
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+        except ffmpeg.Error as e:
+            print(e.stderr.decode(), file=sys.stderr)
+            sys.exit(1)
 
-    return cv2.imread(img_path)
+    return None
+
+def prepare_thumbnail(in_filename_list):
+    work_datas = [[in_filename, 0] for in_filename in in_filename_list]
+    p = Pool(cpu_count())
+    p.map(generate_thubnail_idx, work_datas)
+
 
 def generate_thumbnail(in_filename_list, delete_folder):
     for idx, in_filename in enumerate(in_filename_list):
@@ -50,9 +57,8 @@ def generate_thumbnail(in_filename_list, delete_folder):
 
         offset = 0
         while True:
-            work_datas = [[in_filename, i, offset] for i in [1, 2, 3, 4]]
-            p = Pool(4)
-            img_list = p.map(generate_thubnail_idx, work_datas)
+            image_file_path_list = [os.path.join(cache_path, "{}_{}.jpg".format(os.path.basename(in_filename), idx)) for idx in [1, 2, 3, 4]]
+            img_list = [cv2.imdecode(np.fromfile(fp,dtype=np.uint8),-1) for fp in image_file_path_list]
 
             img_list_2d = [[img_list[0],img_list[1]],
                            [img_list[2],img_list[3]]]
@@ -61,7 +67,7 @@ def generate_thumbnail(in_filename_list, delete_folder):
 
             window_name = os.path.basename(in_filename)
             # cv2.namedWindow(window_name)
-            cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN)
+            cv2.namedWindow(window_name.encode("gbk"), cv2.WND_PROP_FULLSCREEN)
             cv2.moveWindow(window_name, 200, 200)
             cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
@@ -106,6 +112,7 @@ def glob_folders(top_path):
             if os.path.splitext(os.path.basename(entry.path))[1] == ".mp4":
                 files_to_check.append(entry.path)
 
+    # prepare_thumbnail(files_to_check)
     generate_thumbnail(files_to_check, delete_folder)
 
 def filt_video(top_path):
