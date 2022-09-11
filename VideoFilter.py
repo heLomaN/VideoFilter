@@ -3,7 +3,8 @@ import ffmpeg
 from multiprocessing import Pool, cpu_count
 import cv2
 import numpy as np
-
+import tkinter as tk
+from tkinter import filedialog
 
 def create_folder(wk_path):
     try:
@@ -21,9 +22,13 @@ cache_path = "_video_filter"
 
 def generate_thubnail_idx(input_data):
     (in_filename, time_offset) = input_data
-    probe = ffmpeg.probe(in_filename)
-    time = float(probe['streams'][0]['duration']) // 5
-    width = probe['streams'][0]['width']
+    try:
+        probe = ffmpeg.probe(in_filename)
+        time = float(probe['streams'][0]['duration']) // 5
+        width = probe['streams'][0]['width']
+    except Exception as e:
+        print(str(e) + " file=" + in_filename, file=sys.stderr)
+        return None
 
     for idx in [1, 2, 3, 4]:
         img_path = os.path.join(cache_path, "{}_{}.jpg".format(os.path.basename(in_filename), idx))
@@ -40,7 +45,7 @@ def generate_thubnail_idx(input_data):
             )
         except ffmpeg.Error as e:
             print(e.stderr.decode(), file=sys.stderr)
-            sys.exit(1)
+            # sys.exit(1)
 
     return None
 
@@ -65,12 +70,17 @@ def generate_thumbnail(in_filename_list, delete_folder):
                 break
 
             img_list_2d = [[img_list[0],img_list[1]],
-                           [img_list[2],img_list[3]]]
+                           [img_list[2],img_list[3]]] if img_list[0].shape[0] < img_list[0].shape[1] else \
+                [[img_list[0], img_list[1], img_list[2], img_list[3]]]
             img1 = concat_vh(img_list_2d)
             cv2.putText(img1, text_label, org=(10,30), fontFace= cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.7, color=(255,128,128), thickness=1, lineType=cv2.LINE_AA)
 
             window_name = os.path.basename(in_filename)
-            window_name = window_name.encode("gbk").decode('UTF-8', errors='ignore')
+            try:
+                window_name = window_name.encode("gbk").decode('UTF-8', errors='ignore')
+            except Exception as e:
+                print(str(e) + " skip " + in_filename)
+                break
             # cv2.namedWindow(window_name)
             cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN)
             cv2.moveWindow(window_name, 200, 200)
@@ -103,6 +113,9 @@ def generate_thumbnail(in_filename_list, delete_folder):
                     exit(0)
                 break
 
+def ext_is_video(ext):
+    valid_ext = [".mp4", ".wmv", ".avi", ".mkv", ".avi", ".mpg", ".flv"]
+    return str.lower(ext) in valid_ext
 
 def glob_folders(top_path):
     if not os.access(top_path, os.R_OK):
@@ -115,10 +128,12 @@ def glob_folders(top_path):
     for entry in os.scandir(top_path):
         if os.access(entry, os.R_OK) and os.path.isfile(entry.path):
             print(entry.path)
-            if os.path.splitext(os.path.basename(entry.path))[1] == ".mp4":
+            if ext_is_video(os.path.splitext(os.path.basename(entry.path))[1]):
                 files_to_check.append(entry.path)
 
+    # 多进程生成缩略图
     prepare_thumbnail(files_to_check)
+    # 开始筛选是否保留视频
     generate_thumbnail(files_to_check, delete_folder)
 
 def filt_video(top_path):
@@ -128,5 +143,6 @@ def filt_video(top_path):
                 pass
 
 if __name__ == "__main__":
-    root_dir = r"U:\col_atv\20220706\big"
+    root_dir = filedialog.askdirectory()
+    # root_dir = r"H:\photos\photos_current\20220405运动相机\100XTUDV"
     glob_folders(root_dir)
