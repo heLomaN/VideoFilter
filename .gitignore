@@ -1,3 +1,6 @@
 .idea
 *~
 _video_filter
+config.ini
+*.pyc
+dist/
